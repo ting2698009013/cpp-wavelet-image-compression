@@ -1,0 +1,15 @@
+build/
+out/
+Debug/
+Release/
+x64/
+x86/
+*.exe
+*.obj
+*.o
+*.pdb
+*.dat
+*_decoded.bmp
+.vs/
+.DS_Store
+Thumbs.db
