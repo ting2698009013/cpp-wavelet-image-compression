@@ -98,7 +98,8 @@ vector<char> quantize(const vector<double>& data, double& scale) {
     scale = 127.0 / maxVal;
     vector<char> quantized(data.size());
     for (size_t i = 0; i < data.size(); ++i) {
-        quantized[i] = clampValue<char>(static_cast<char>(round(data[i] * scale)), -127, 127);
+        const double scaled = clampValue(round(data[i] * scale), -127.0, 127.0);
+        quantized[i] = static_cast<char>(scaled);
     }
     return quantized;
 }
@@ -177,7 +178,7 @@ bool saveCompressedData(const vector<char>& red, const vector<char>& green,
     file.write(reinterpret_cast<const char*>(&greenScale), sizeof(greenScale));
     file.write(reinterpret_cast<const char*>(&blueScale), sizeof(blueScale));
 
-    size_t totalSize = width * height;
+    size_t totalSize = static_cast<size_t>(width) * static_cast<size_t>(height);
     file.write(reinterpret_cast<const char*>(&totalSize), sizeof(totalSize));
 
     // 对每个通道进行游程编码
@@ -300,23 +301,24 @@ bool loadCompressedData(vector<char>& red, vector<char>& green,
 }
 
 // 图像压缩主流程
-void compressImage(const char* inputFile, const char* outputFile) {
+bool compressImage(const char* inputFile, const char* outputFile) {
     Image image;
     string error;
     if (!loadBmp(inputFile, image, error)) {
         cerr << "无法读取输入文件: " << inputFile << "（" << error << "）" << endl;
-        return;
+        return false;
     }
 
     const int width = image.width;
     const int height = image.height;
     if (width % 8 != 0 || height % 8 != 0) {
         cerr << "图像宽高必须能被 8 整除，以执行三级 Haar 小波变换。" << endl;
-        return;
+        return false;
     }
 
 
-    vector<double> redChannel(width * height), greenChannel(width * height), blueChannel(width * height);
+    const size_t pixelCount = static_cast<size_t>(width) * static_cast<size_t>(height);
+    vector<double> redChannel(pixelCount), greenChannel(pixelCount), blueChannel(pixelCount);
     for (size_t idx = 0; idx < redChannel.size(); ++idx) {
         redChannel[idx] = image.rgb[idx * 3];
         greenChannel[idx] = image.rgb[idx * 3 + 1];
@@ -345,14 +347,16 @@ void compressImage(const char* inputFile, const char* outputFile) {
     if (saveCompressedData(redQuantized, greenQuantized, blueQuantized, width, height,
         redScale, greenScale, blueScale, outputFile)) {
         printf("压缩成功！保存为: %s\n", outputFile);
+        return true;
     }
     else {
         printf("压缩失败！\n");
+        return false;
     }
 }
 
 // 图像解压主流程
-void readImage(const char* compressedFile, const char* outputFile) {
+bool readImage(const char* compressedFile, const char* outputFile) {
     vector<char> redQuantized, greenQuantized, blueQuantized;
     int width, height;
     double redScale, greenScale, blueScale;
@@ -360,7 +364,7 @@ void readImage(const char* compressedFile, const char* outputFile) {
     if (!loadCompressedData(redQuantized, greenQuantized, blueQuantized, width, height,
         redScale, greenScale, blueScale, compressedFile)) {
         printf("无法读取文件: %s\n", compressedFile);
-        return;
+        return false;
     }
 
     vector<double> redChannel = dequantize(redQuantized, redScale);
@@ -385,9 +389,10 @@ void readImage(const char* compressedFile, const char* outputFile) {
     string error;
     if (!saveBmp(outputFile, output, error)) {
         cerr << "无法写入解压图像: " << outputFile << "（" << error << "）" << endl;
-        return;
+        return false;
     }
     cout << "解压成功！保存为: " << outputFile << endl;
+    return true;
 }
 string replaceExtension(const string& inputFile, const string& extension) {
     size_t dotPos = inputFile.find_last_of('.');
@@ -405,15 +410,14 @@ int main(int argc, char* argv[]) {
     string cmd = argv[1], path = argv[2];
     if (cmd == "-compress") {
         const string output = argc == 4 ? argv[3] : replaceExtension(path, ".dat");
-        compressImage(path.c_str(), output.c_str());
+        return compressImage(path.c_str(), output.c_str()) ? 0 : 1;
     }
     else if (cmd == "-decompress") {
         const string output = argc == 4 ? argv[3] : replaceExtension(path, "_decoded.bmp");
-        readImage(path.c_str(), output.c_str());
+        return readImage(path.c_str(), output.c_str()) ? 0 : 1;
     }
     else {
         printf("未知命令\n");
+        return 1;
     }
-
-    return 0;
 }
