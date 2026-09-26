@@ -230,8 +230,9 @@ string loadBinaryData(ifstream& file) {
     }
 
     // 移除填充位
-    if (padding > 0 && padding <= binaryStr.length()) {
-        binaryStr = binaryStr.substr(0, binaryStr.length() - padding);
+    const size_t paddingSize = static_cast<size_t>(padding);
+    if (padding > 0 && paddingSize <= binaryStr.length()) {
+        binaryStr.resize(binaryStr.length() - paddingSize);
     }
 
     return binaryStr;

@@ -153,7 +153,7 @@ vector<char> runLengthEncode(const vector<char>& data) {
             }
             // 拆分长于255的连续零（按255分段）
             while (runLength > 0) {
-                uint8_t segment = static_cast<uint8_t>(min(runLength, 255ULL));
+                uint8_t segment = static_cast<uint8_t>(min(runLength, size_t{ 255 }));
                 encoded.push_back(0);           // 标记：接下来是零的个数
                 encoded.push_back(static_cast<char>(segment)); // 零的个数（1字节）
                 runLength -= segment;
